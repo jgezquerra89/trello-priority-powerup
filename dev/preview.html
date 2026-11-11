@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Priority Preview</title>
+    <style>
+      :root {
+        --page: #0079bf;
+        --list: #f1f2f4;
+        --card: #ffffff;
+        --text: #172b4d;
+        --muted: #626f86;
+        --panel: #ffffff;
+      }
+      :root[data-theme='dark'] {
+        --page: #1d2125;
+        --list: #101204;
+        --card: #22272b;
+        --text: #b6c2cf;
+        --muted: #8c9bab;
+        --panel: #282e33;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+      }
+      header {
+        display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+        padding: 10px 16px; background: rgba(0,0,0,.25); color: #fff;
+      }
+      header strong { margin-right: auto; }
+      header label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+      header button { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 4px; border: 0; cursor: pointer; }
+      main { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; }
+      .list { width: 280px; max-width: 100%; background: var(--list); border-radius: 12px; padding: 8px; }
+      .list-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 8px; font-weight: 600; }
+      .list-head button { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 0; cursor: pointer; background: rgba(9,30,66,.08); color: var(--text); }
+      .card {
+        background: var(--card); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;
+        box-shadow: 0 1px 1px rgba(9,30,66,.25); cursor: pointer; border: 2px solid transparent;
+      }
+      .card.is-active { border-color: #388bff; }
+      .card-name + .badge { margin-top: 6px; }
+      .badge {
+        display: inline-flex; gap: 4px; align-items: center; font-size: 12px; font-weight: 500;
+        padding: 2px 6px; border-radius: 3px; color: #fff;
+      }
+      .badge img { width: 14px; height: 14px; }
+      .badge.red { background: #c9372c; }
+      .badge.orange { background: #c25100; }
+      .badge.yellow { background: #946f00; }
+      .badge.blue { background: #0c66e4; }
+      .badge.light-gray { background: #758195; }
+      .panel { flex: 1 1 360px; max-width: 560px; background: var(--panel); border-radius: 12px; padding: 16px 20px; }
+      .panel h2 { margin: 0 0 4px; font-size: 18px; }
+      .panel .section-title { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; font-weight: 600; }
+      .panel .section-title img { width: 20px; }
+      iframe { width: 100%; border: 0; display: block; height: 44px; }
+      .popup { width: 304px; max-width: 100%; }
+      .popup[hidden] { display: none; }
+      .note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+    </style>
+    <script src="./mock-trello.js"></script>
+  </head>
+  <body>
+    <header>
+      <strong>Priority: local preview (mock Trello)</strong>
+      <button type="button" id="settings">Board settings</button>
+      <label><input type="checkbox" id="dark" /> Dark theme</label>
+      <label><input type="checkbox" id="readonly" /> View-only member</label>
+    </header>
+    <main>
+      <section class="list" aria-label="Backlog list">
+        <div class="list-head">
+          <span>Backlog</span>
+          <button type="button" id="sort">Sort by priority</button>
+        </div>
+        <div id="cards"></div>
+      </section>
+      <section class="panel" aria-label="Card back">
+        <h2 id="card-title"></h2>
+        <div class="section-title"><img id="section-icon" alt="" /> <span id="section-name"></span></div>
+        <iframe id="section" title="Priority section"></iframe>
+        <p class="note">Click a card on the left to open its back. This page fakes Trello so the real Power-Up code can be tried locally.</p>
+      </section>
+      <section class="panel popup" id="popup" aria-label="Settings popup" hidden>
+        <h2 id="popup-title"></h2>
+        <iframe id="popup-frame" title="Settings"></iframe>
+      </section>
+    </main>
+
+    <script src="../js/priority.js"></script>
+    <script src="../js/client.js"></script>
+    <script>
+      (function () {
+        var mock = TrelloPowerUp._mock;
+        var store = mock.store;
+        var caps = store.capabilities;
+
+        var cards = [
+          { id: 'c1', name: 'Onboarding checklist for new users' },
+          { id: 'c2', name: 'Dark mode for the dashboard' },
+          { id: 'c3', name: 'Export reports to CSV' },
+          { id: 'c4', name: 'Fix login timeout on mobile' },
+          { id: 'c5', name: 'Slack notifications' },
+          { id: 'c6', name: 'Rename “Projects” to “Spaces”' },
+        ];
+        store.data = {
+          c1: { priority: 2 },
+          c2: { priority: 4 },
+          c4: { priority: 1 },
+          c5: { priority: 5 },
+          c6: { priority: 2 },
+        };
+        store.activeCard = 'c1';
+
+        var cardsEl = document.getElementById('cards');
+        var frame = document.getElementById('section');
+        var popup = document.getElementById('popup');
+        var popupFrame = document.getElementById('popup-frame');
+
+        function drawCards() {
+          return Promise.all(
+            cards.map(function (card) {
+              return caps['card-badges'](mock.makeT(card.id)).then(function (badges) {
+                return { card: card, badges: badges };
+              });
+            })
+          ).then(function (rows) {
+            cardsEl.textContent = '';
+            rows.forEach(function (row) {
+              var div = document.createElement('div');
+              div.className = 'card' + (row.card.id === store.activeCard ? ' is-active' : '');
+              var name = document.createElement('div');
+              name.className = 'card-name';
+              name.textContent = row.card.name;
+              div.appendChild(name);
+              row.badges.forEach(function (b) {
+                var span = document.createElement('span');
+                span.className = 'badge' + (b.color ? ' ' + b.color : '');
+                var img = document.createElement('img');
+                img.src = b.icon;
+                img.alt = '';
+                span.appendChild(img);
+                span.appendChild(document.createTextNode(b.text));
+                div.appendChild(span);
+              });
+              div.addEventListener('click', function () { openCard(row.card.id); });
+              cardsEl.appendChild(div);
+            });
+          });
+        }
+
+        function openCard(id) {
+          store.activeCard = id;
+          store.listeners = [];
+          var card = cards.filter(function (c) { return c.id === id; })[0];
+          document.getElementById('card-title').textContent = card.name;
+          var section = caps['card-back-section'](mock.makeT(id));
+          document.getElementById('section-name').textContent = section.title;
+          document.getElementById('section-icon').src = section.icon;
+          frame.src = new URL('./section-frame.html', location.href).href + '?card=' + id + '&r=' + Date.now();
+          drawCards();
+        }
+
+        store.onPopup = function (opts) {
+          document.getElementById('popup-title').textContent = opts.title;
+          popupFrame.style.height = opts.height + 'px';
+          popupFrame.src = new URL('./settings-frame.html', location.href).href + '?r=' + Date.now();
+          popup.hidden = false;
+        };
+        store.onClosePopup = function () {
+          popup.hidden = true;
+          popupFrame.src = 'about:blank';
+        };
+
+        document.getElementById('settings').addEventListener('click', function () {
+          caps['show-settings'](mock.makeT(null));
+        });
+
+        document.getElementById('sort').addEventListener('click', function () {
+          var t = mock.makeT(null);
+          var sorter = caps['list-sorters'](t)[0];
+          sorter.callback(t, { cards: cards.map(function (c) { return { id: c.id, name: c.name }; }) })
+            .then(function (result) {
+              cards = result.sortedIds.map(function (id) {
+                return cards.filter(function (c) { return c.id === id; })[0];
+              });
+              drawCards();
+            });
+        });
+
+        document.getElementById('dark').addEventListener('change', function (e) {
+          store.theme = e.target.checked ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', store.theme);
+          openCard(store.activeCard);
+          if (!popup.hidden) caps['show-settings'](mock.makeT(null));
+        });
+
+        document.getElementById('readonly').addEventListener('change', function (e) {
+          store.canEdit = !e.target.checked;
+          openCard(store.activeCard);
+          if (!popup.hidden) caps['show-settings'](mock.makeT(null));
+        });
+
+        store.onChange = drawCards;
+        openCard('c1');
+      })();
+    </script>
+  </body>
+</html>

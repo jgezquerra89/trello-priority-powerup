@@ -1,0 +1,10 @@
+{
+  "name": "priority-trello-powerup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trello Power-Up that gives cards a priority level and sorts lists by it.",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "preview": "node dev/serve.js 8791"
+  }
+}
